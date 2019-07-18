@@ -1,19 +1,18 @@
 var map;
 var marker;
+var tgtstn = "A01";
 var linesurl = "static/js/Metro_Lines_Regional.geojson"
 var stngeourl = "/stations/geo"
 
 
 function flyTo(lat,lon){
-    map.flyTo([lat,lon],17);
+    map.flyTo([lat,lon],15);
     marker = L.marker([lat,lon])
         .addTo(map)}
 
 function mkSvg(line){
     var ccolor;
     var tcolor;
-
-
     if (line === "RD"){
         ccolor = "#BF0D3E"
         tcolor = "#fff"
@@ -86,7 +85,7 @@ function initMap(data) {
 
         map = L.map("map", {
             center: [lat, lng],
-            zoom: 17
+            zoom: 15
             });
         
         L.geoJSON(data, {
@@ -133,14 +132,7 @@ function buildStationInfo(station){
             .html(`<b>Address:</b><br>
                     ${response.address.Street} <br>
                     ${response.address.City}, ${response.address.State} ${response.address.Zip}`);
-        d3.select("#trains1").html("");
-        d3.select("#trains2").html("");
-        var trns1 = response['trains1'].sort(function(a,b) { return a.Group - b.Group; });
-        tabulate(trns1, ['Line', 'Car', 'Destination','Min'], "#trains1");
-        var trns2 = response['trains2']
-        if (trns2.hasOwnProperty("0")) {
-            tabulate(trns2, ['Line', 'Car', 'Destination','Min'], "#trains2");
-        };
+        buildTrainTable(response)
         var lat = response.lat
         var lng = response.lng
         if (marker != undefined) {
@@ -148,15 +140,41 @@ function buildStationInfo(station){
          };
         flyTo(lat,lng)
         marker.bindPopup(`<b>${response.name}</b>`).openPopup()
-    });};
+    });
+};
+
+function clock() {
+    var d = new Date();
+    var time = d.toLocaleTimeString()
+    d3.select("#clock").text(`current time is: ${time}`);
+}
 
 
+function buildTrainTable(response) {
+    var d = new Date();
+    var time = d.toLocaleTimeString()
+    d3.select("#timer").text(`last updated at ${time}`);
+    d3.select("#trains1").html("");
+    d3.select("#trains2").html("");
+    var trns1 = response['trains1'].sort(function(a,b) { return a.Group - b.Group; });
+    tabulate(trns1, ['Line', 'Car', 'Destination','Min'], "#trains1");
+    var trns2 = response['trains2']
+    if (trns2.hasOwnProperty("0")) {
+        trns2.sort(function(a,b) { return a.Group - b.Group; });
+        tabulate(trns2, ['Line', 'Car', 'Destination','Min'], "#trains2");
+    };
+}
 
+function updateTrainTable() {
+    d3.json(`/stations/${tgtstn}`).then(function(response){
+        buildTrainTable(response);
+    });
+};
 
 function optionChanged(newStation) {
-    // Fetch new data each time a new sample is selected
+    tgtstn = newStation
     buildStationInfo(newStation);
-    }
+};
 
 
 
@@ -180,3 +198,10 @@ init();
 d3.json(linesurl).then(function(data){
     initMap(data)
     });
+
+d3.interval(function(){
+    clock();
+})
+d3.interval(function(){
+    updateTrainTable()
+}, 20000)
