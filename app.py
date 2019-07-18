@@ -4,8 +4,12 @@ import numpy as np
 import requests, json
 from flask import Flask, jsonify, render_template, redirect
 from flask_pymongo import PyMongo
+import configparser
 
-app = Flask(__name__)
+config = configparser.ConfigParser()
+config.read('config.ini')
+cfg = config['Connection Info']
+
 
 
 #################################################
@@ -13,7 +17,11 @@ app = Flask(__name__)
 #################################################
 
 app = Flask(__name__)
-mongo = PyMongo(app, uri ="mongodb://ds131737.mlab.com:31737/heroku_2xs5kb65")
+mongo = PyMongo(app, uri ="mongodb://ds131737.mlab.com:31737/heroku_2xs5kb65",
+                            username = cfg['dbuser'],
+                            password = cfg['auth'],
+                            authSource = cfg['authSource'],
+                            authMechanism = cfg['authMech'])
                     
 
 
@@ -46,7 +54,7 @@ def stationinfo(code):
             "lng": station[0]['Lon']}
 
     predict_url = f'https://api.wmata.com/StationPrediction.svc/json/GetPrediction/'
-    params = {}
+    params = {"api_key":cfg['metro_api']}
     trains1 = requests.get(f'{predict_url}{code}', params=params).json()
     result['trains1'] = trains1['Trains']
 
@@ -58,7 +66,16 @@ def stationinfo(code):
 
     return jsonify(result)
 
-
+@app.route("/stations/geo")
+def stationgeo():
+    geo = mongo.db.station_geo.find()
+    geolist = []
+    for station in geo: 
+        geolist.append({"lat":station['lat'],
+                        "lng":station['lng'],
+                        "xfer":station['xfer']})
+    return jsonify(geolist)
+  
 
 if __name__ == "__main__":
     app.run()

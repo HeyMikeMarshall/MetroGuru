@@ -1,13 +1,50 @@
 var map;
+var marker;
+var linesurl = "static/js/Metro_Lines_Regional.geojson"
+var stngeourl = "/stations/geo"
+
 
 function flyTo(lat,lon){
     map.flyTo([lat,lon],17);
-    L.marker([lat,lon])
-        .addTo(map)
-        .bindPopup("Test")}
+    marker = L.marker([lat,lon])
+        .addTo(map)}
+
+function mkSvg(line){
+    var ccolor;
+    var tcolor;
 
 
+    if (line === "RD"){
+        ccolor = "#BF0D3E"
+        tcolor = "#fff"
+    }
+    if (line === "OR"){
+        ccolor = "#ED8B00"
+        tcolor = "#000"
+    }
+    if (line === "BL"){
+        ccolor = "#009CDE"
+        tcolor = "#fff"
+    }
+    if (line === "GR"){
+        ccolor = "#00B140"
+        tcolor = "#fff"
+    }
+    if (line === "YL"){
+        ccolor = "#FFD100"
+        tcolor = "#000"
+    }
+    if (line === "SV"){
+        ccolor = "#919D9D"
+        tcolor = "#000"
+    }
+    var svg =`<svg height="20" width="20">
+    <circle cx="10" cy="10" r="10"fill=${ccolor} />
+    <text text-anchor="middle" font-size="10px" fill=${tcolor}  x=10 y=14> ${line} </text>
+    </svg>`
 
+    return svg
+}
 
 function tabulate(data, columns, divid) {
     var table = d3.select(divid).append('table')
@@ -33,17 +70,51 @@ function tabulate(data, columns, divid) {
         })
         .enter()
         .append('td')
-        .text(function (d) { return d.value; });
+        .html(function (d) { 
+            if (d.column === "Line"){
+                return mkSvg(d.value)
+            }
+            else 
+                return d.value; });
+        
     return table;
     };
 
-function initMap() {
+function initMap(data) {
         var lat = "38.898303"
         var lng = "-77.028099"
+
         map = L.map("map", {
             center: [lat, lng],
             zoom: 17
             });
+        
+        L.geoJSON(data, {
+            style: function(feature) {
+                switch (feature.properties.NAME) {
+                    case 'red': return {color: "#BF0D3E"};
+                    case 'orange':   return {color: "#ED8B00"};
+                    case 'orange - rush +': return {color:"#ED8B00"}
+                    case 'blue':   return {color: "#009CDE"};
+                    case 'green':   return {color: "#00B140"};
+                    case 'yellow':   return {color: "#FFD100"};
+                    case 'silver':   return {color: "#919D9D"};
+                }}
+        }).addTo(map);
+
+        d3.json("/stations/geo").then(function(data){
+            for (var i = 0; i < data.length; i++) {
+                L.circle([data[i].lat, data[i].lng], {
+                        color: "#000",
+                        fillColor: "#fff",
+                        fillOpacity: 1,
+                        radius: 20
+                    }).addTo(map);}
+            
+        })
+        
+
+        
         L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}", {
             attribution: "Map data &copy; <a href=\"https://www.openstreetmap.org/\">OpenStreetMap</a> contributors, <a href=\"https://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"https://www.mapbox.com/\">Mapbox</a>",
             maxZoom: 20,
@@ -72,7 +143,11 @@ function buildStationInfo(station){
         };
         var lat = response.lat
         var lng = response.lng
+        if (marker != undefined) {
+            map.removeLayer(marker);
+         };
         flyTo(lat,lng)
+        marker.bindPopup(`<b>${response.name}</b>`).openPopup()
     });};
 
 
@@ -100,5 +175,8 @@ function init(){
         
     })
 }
-initMap();
+
 init();
+d3.json(linesurl).then(function(data){
+    initMap(data)
+    });
